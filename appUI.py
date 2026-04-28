@@ -7,7 +7,7 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 from project import apply_dwt_lossless, apply_dct_compression, compress_image, auto_detect_roi
 from metrics import compute_psnr, compute_ssim
-
+import matplotlib.pyplot as plt
 
 
 
@@ -167,6 +167,8 @@ class ROICompressionApp:
         self.ratio_var    = row("Compression ratio")
         self.roi_pct_var  = row("ROI coverage (%)")
         self.size_var     = row("Image size")
+        self.input_size_var = row("Input size")
+        self.output_size_var = row("Compressed size")
         tk.Frame(p, bg=BORDER, height=1).pack(fill='x', padx=8, pady=8)
         tk.Label(p, text="ROI  = DWT (near-lossless)\nBG   = DCT (heavy)\n\nRight-click = undo point\nDouble-click = close poly",
                  bg=DARK, fg='#4b4b6a', font=('Courier New',8), justify='left').pack(anchor='w', padx=12)
@@ -386,6 +388,8 @@ class ROICompressionApp:
         self.size_var.set(f"{w} × {h}")
         self._set_status(f"Loaded: {os.path.basename(path)}\n{w}×{h} px")
         self._on_mode_change()
+        orig_kb = os.path.getsize(path) / 1024
+        self.input_size_var.set(f"{orig_kb:.1f} KB")
 
     def _run_compression(self):
         if self.original_bgr is None:
@@ -400,7 +404,8 @@ class ROICompressionApp:
             self.original_bgr, self.roi_mask, bg_quality=self.quality_var.get())
         self._display_image(self.comp_canvas, self.compressed_bgr)
         self._compute_metrics()
-        self._set_status("Done ✓")
+        self._set_status("Done")
+
 
     def _compute_metrics(self):
         orig, comp, mask = self.original_bgr, self.compressed_bgr, self.roi_mask
@@ -419,7 +424,10 @@ class ROICompressionApp:
         ratio = (pct/100)*1.0 + (1-pct/100)*max(1.0,(100-q)/10.0)
         self.ratio_var.set(f"~{ratio:.1f}×")
         self.roi_pct_var.set(f"{pct:.1f}%")
-
+        # Estimate compressed size
+        orig_kb = os.path.getsize(self.image_path) / 1024 if self.image_path else 0
+        est_kb = orig_kb / ratio if orig_kb else 0
+        self.output_size_var.set(f"{est_kb:.1f} KB (est.)")
     def _save_result(self):
         if self.compressed_bgr is None:
             messagebox.showwarning("Nothing to save", "Run compression first.")
